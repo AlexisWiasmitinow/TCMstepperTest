@@ -31,7 +31,7 @@
 #define RXD2 18             // TMC2208/TMC2224 SoftwareSerial receive pin
 #define TXD2 16             // TMC2208/TMC2224 SoftwareSerial transmit pin
 #define SERIAL_PORT Serial2 // TMC2208/TMC2224 HardwareSerial port
-#define DRIVER_ADDRESS 0b00 // TMC2209 Driver address according to MS1 and MS2
+#define DRIVER_ADDRESS 0b11 // TMC2209 Driver address according to MS1 and MS2 0bxy where x is MS2 and y MS1
 #define DIAG 4
 #define stepDelay 500
 
@@ -99,7 +99,7 @@ void loop() {
         delayMicroseconds(stepDelay);
         digitalWrite(STEP_PIN, 0);
         // delay(500);
-        diag = digitalRead(DIAG);
+        // diag = digitalRead(DIAG);
         if (diag) {
             runMotor = false;
         }
