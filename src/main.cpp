@@ -29,7 +29,7 @@ void DiagInputSetup() {
 }
 
 void IRAM_ATTR Diag_ISR() {  
-  delayMicroseconds(500);                 // Debouncer
+  delayMicroseconds(50);                 // Debouncer
 
   if (!(DIAGpin == LOW)) {
     digitalWrite(TestLED, 1);
@@ -37,27 +37,31 @@ void IRAM_ATTR Diag_ISR() {
     digitalWrite(ENN, 1);                 // Reset the driver error condition
     delayMicroseconds(1000);
     digitalWrite(ENN, 0);                 // Enable driver
+    MotorRun = false;                     // Change motor rotation state
   }
   else {
     Serial.println("False Alarm");
+    digitalWrite(ENN, 1);                 // Reset the driver error condition
+    delayMicroseconds(1000);
+    digitalWrite(ENN, 0);                 // Enable driver
   }         
 }
 
 void setup() {
-
   //pinMode(DIR_PIN, OUTPUT);
   //pinMode(STEP_PIN,OUTPUT);
+  //delay(5000);                      // Let driver stabilize
   pinMode(TestLED, OUTPUT);
   pinMode(ENN, OUTPUT);
-  pinMode(DIAGpin, INPUT_PULLUP);
-  digitalWrite(ENN, 0);                     // Enable driver
-  DiagInputSetup();                         // Initialize interrupt setup
+  digitalWrite(ENN, 0);       // Enable driver
+  pinMode(DIAGpin, INPUT_PULLDOWN);
   stepper.connectToPins(STEP_PIN, DIR_PIN); // INITIALIZE SpeedyStepper
 
-  SERIAL_PORT.begin(115200);                // INITIALIZE UART TMC2209
+  SERIAL_PORT.begin(115200);      // INITIALIZE UART TMC2209
   Serial.begin(115200);
   delay(500);
   Serial.println(F("Serial Initialized"));
+
 
   driver.pdn_disable(true);         // Enable driver UART
   driver.begin();                   // Initialize driver  
@@ -70,41 +74,58 @@ void setup() {
   driver.TCOOLTHRS(0xFFFFF);        // Prevents from switching to spreadcycle when exceeding this velocity, hence max speed  
   driver.SGTHRS(STALL_VALUE);       // The stall output becomes active if SG_RESULT fall below this 2x value.     
 
+  DiagInputSetup();                 // Initialize interrupt setup
+  //MotorRun = true;                  // Setup motor run
   stepper.setCurrentPositionInSteps(0);                   // Set zero position
   stepper.setSpeedInStepsPerSecond(400);                  // Set Speed
   stepper.setAccelerationInStepsPerSecondPerSecond(400);  // Set acceleration, smaller value for super smooth direction changing
 }
 
 void loop() {
-  stepper.moveRelativeInSteps(800);
-  //stepper.moveToPositionInSteps(1600);
-  delay(2000);  
 
-  msread = driver.microsteps();
-  rms_current = driver.rms_current();
-  //CurrentPosition = stepper.moveToPositionInSteps();
+  if (MotorRun == true) {
+    stepper.moveRelativeInSteps(800);
+    //stepper.moveToPositionInSteps(1600);
+    delay(2000);
+    
 
-  driver.microsteps(2);                                 // Read microsteps from driver
-  msread = driver.microsteps();
-  Serial.print(F("Read microsteps: "));
-  Serial.println(msread);
- 
-  shaft = !shaft;                                       // Reverse direction
-  driver.shaft(shaft);                                  // Set direction
-  shaftPosition = driver.shaft();
-  Serial.print("Shaft direction: ");
-  Serial.println(shaftPosition);
-  //digitalWrite(TestLED, shaft);
-  digitalWrite(TestLED, 0);                             // Confirm, that IC is back into main loop from ISR
+    msread = driver.microsteps();
+    rms_current = driver.rms_current();
+    //CurrentPosition = stepper.moveToPositionInSteps();
 
-  driver.rms_current(500);                              // Read current from driver
-  rms_current = driver.rms_current();
-  Serial.print(F("Read current current slow: "));
-  Serial.println(rms_current);
 
-  Serial.print(F("Stall Guard value: "));             // Read stall value from driver
-  Serial.println(driver.SG_RESULT());
+    driver.microsteps(2);           
+    msread = driver.microsteps();
+    Serial.print(F("Read microsteps: "));
+    Serial.println(msread);
+  
+    shaft = !shaft; // REVERSE DIRECTION
+    driver.shaft(shaft); // SET DIRECTION
+    shaftPosition = driver.shaft();
+    Serial.print("Shaft direction: ");
+    Serial.println(shaftPosition);
+    //digitalWrite(TestLED, shaft);
+    digitalWrite(TestLED, 0);
 
-  Serial.print("Threshold :");
-  Serial.println(driver.SGTHRS());
+    driver.rms_current(500);
+    rms_current = driver.rms_current();
+    Serial.print(F("Read current slow: "));
+    Serial.println(rms_current);
+
+    Serial.print(F("Stall Guard value: "));
+    Serial.println(driver.SG_RESULT());
+
+    Serial.print("Threshold :");
+    Serial.println(driver.SGTHRS());
+  }
+  else {
+    stepper.moveRelativeInSteps(0);       // Stop motor
+    Serial.println("Motor driver rotation stopped!");
+    Serial.print("Stall detection current position: ");
+    //Serial.println(stepper.getCurrentPositionInSteps());            //Get current position is steps
+    Serial.println(stepper.getCurrentPositionInMillimeters());        // Get curent position in millimeters
+    Serial.print("Shaft direction: ");                                // Get direction in which motor was running
+    Serial.println(shaftPosition);
+    delay(2000);
+  }  
 }
