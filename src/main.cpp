@@ -16,6 +16,7 @@ SpeedyStepper stepper;
 
 bool shaft = false;  // ONLY NEEDED FOR CHANGING DIRECTION VIA UART, NO NEED FOR DIR PIN FOR THIS
 bool shaftPosition;
+bool MotorRun = true;       // Start motor rotation
 uint16_t msread;
 uint16_t rms_current;
 uint16_t CurrentPosition;
@@ -53,7 +54,7 @@ void setup() {
   //delay(5000);                      // Let driver stabilize
   pinMode(TestLED, OUTPUT);
   pinMode(ENN, OUTPUT);
-  digitalWrite(ENN, 0);       // Enable driver
+  digitalWrite(ENN, 0);               // Enable driver
   pinMode(DIAGpin, INPUT_PULLDOWN);
   stepper.connectToPins(STEP_PIN, DIR_PIN); // INITIALIZE SpeedyStepper
 
