@@ -1,32 +1,63 @@
 #include <TMCStepper.h>
-#include <SpeedyStepper.h> 
+//#include <SpeedyStepper.h> //Simple & good stepper library, get it.
+#include <SpeedyStepperNay.h>       // Edited the library to accomodate expander I2C communication
+#include "PCF8575.h"
+#include <Arduino.h>
 
+//#define digitalWrite(uint8_t pin, uint8_t val) nativeDigitalWrite(uint8_t pin, uint8_t val);        // Duplicate digitalWrite function
 #define DIR_PIN          2 // Direction
-#define STEP_PIN         4 // Step
+//#define STEP_PIN         4 // Step
+#define STEP_PIN          P5 // Step
 #define SERIAL_PORT Serial2 // HardwareSerial port 
 #define DRIVER_ADDRESS 0b00 // TMC2209 Driver address according to MS1 and MS2
 #define R_SENSE 0.11        // Match to your driver
 #define STALL_VALUE 8      // Stall value
 #define TestLED 18          // LED test
 #define DIAGpin 23          // Stall detection Pin
-#define ENN 22              // Enable mottor pin
+#define ENN 19              // Enable mottor pin
 
 TMC2209Stepper driver(&SERIAL_PORT, R_SENSE, DRIVER_ADDRESS);
 SpeedyStepper stepper;
+PCF8575 Pcf8575(0x20);
 
 bool shaft = false;  // ONLY NEEDED FOR CHANGING DIRECTION VIA UART, NO NEED FOR DIR PIN FOR THIS
-bool shaftPosition;
+bool shaftDirection;
 bool MotorRun = true;       // Start motor rotation
 uint16_t msread;
 uint16_t rms_current;
-uint16_t CurrentPosition;
+uint16_t CurrentDirection;
 uint16_t StallValue;
+int nativeDigitalRead(u_int8_t pin);
+int digitalRead(u_int8_t pin);
+void nativeDigitalWrite(uint8_t pin, uint8_t val);
+void digitalWrite(uint8_t pin, uint8_t val);
 void DiagInputSetup();
 void IRAM_ATTR Diag_ISR();
 
+// Override the digitalWrite and digitalRead functions for stepper and multiplexer compatability
+/*
+int nativeDigitalRead(u_int8_t pin) {
+  u_int8_t theValue = ::digitalRead(pin);
+  return theValue;
+}
+
+int digitalRead(u_int8_t pin) {
+  u_int8_t theValue = pcf8575.digitalRead(pin);
+  return theValue;
+}
+
+void nativeDigitalWrite(uint8_t pin, uint8_t val) {
+  ::digitalWrite(pin, val);
+}
+
+void digitalWrite(uint8_t pin, uint8_t val) {
+    pcf8575.digitalWrite(pin, val);
+}
+*/
+
 void DiagInputSetup() {
   attachInterrupt(digitalPinToInterrupt(DIAGpin), Diag_ISR,
-                  HIGH);  // Enable dia pin for interrupt
+                  HIGH);  // Enable diag pin for interrupt
 }
 
 void IRAM_ATTR Diag_ISR() {  
@@ -52,14 +83,20 @@ void setup() {
   //pinMode(DIR_PIN, OUTPUT);
   //pinMode(STEP_PIN,OUTPUT);
   //delay(5000);                      // Let driver stabilize
+  //pinMode(15,OUTPUT);
+  //pcf8575.pinMode(DIR_PIN, OUTPUT);
+  //Pcf8575.pinMode(STEP_PIN, OUTPUT);
+  //Pcf8575.pinMode(P5, OUTPUT);
   pinMode(TestLED, OUTPUT);
   pinMode(ENN, OUTPUT);
-  digitalWrite(ENN, 0);               // Enable driver
+  digitalWrite(ENN, 0);       // Enable driver
   pinMode(DIAGpin, INPUT_PULLDOWN);
   stepper.connectToPins(STEP_PIN, DIR_PIN); // INITIALIZE SpeedyStepper
+  //stepper.connectToPins((pcf8575.STEP_PIN), DIR_PIN); // INITIALIZE SpeedyStepper
 
   SERIAL_PORT.begin(115200);      // INITIALIZE UART TMC2209
   Serial.begin(115200);
+  Pcf8575.begin();                // Initialize I2C communication
   delay(500);
   Serial.println(F("Serial Initialized"));
 
@@ -102,9 +139,9 @@ void loop() {
   
     shaft = !shaft; // REVERSE DIRECTION
     driver.shaft(shaft); // SET DIRECTION
-    shaftPosition = driver.shaft();
+    shaftDirection = driver.shaft();
     Serial.print("Shaft direction: ");
-    Serial.println(shaftPosition);
+    Serial.println(shaftDirection);
     //digitalWrite(TestLED, shaft);
     digitalWrite(TestLED, 0);
 
@@ -118,15 +155,24 @@ void loop() {
 
     Serial.print("Threshold :");
     Serial.println(driver.SGTHRS());
+
+    digitalWrite(TestLED, HIGH);
+    delay(1000);
+    digitalWrite(TestLED, LOW);
+
+    /*nativeDigitalWrite(TestLED, HIGH);
+    delay(1000);
+    nativeDigitalWrite(TestLED, LOW);*/
+
   }
   else {
     stepper.moveRelativeInSteps(0);       // Stop motor
     Serial.println("Motor driver rotation stopped!");
     Serial.print("Stall detection current position: ");
     //Serial.println(stepper.getCurrentPositionInSteps());            //Get current position is steps
-    Serial.println(stepper.getCurrentPositionInMillimeters());        // Get curent position in millimeters
-    Serial.print("Shaft direction: ");                                // Get direction in which motor was running
-    Serial.println(shaftPosition);
+    Serial.println(stepper.getCurrentPositionInMillimeters());        // Get cuurent position in millimeters
+    Serial.print("Shaft direction: ");
+    Serial.println(shaftDirection);
     delay(2000);
   }  
 }
