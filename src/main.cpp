@@ -5,24 +5,22 @@
 #include <Arduino.h>
 
 //#define digitalWrite(uint8_t pin, uint8_t val) nativeDigitalWrite(uint8_t pin, uint8_t val);        // Duplicate digitalWrite function
-#define DIR_PIN          2 // Direction
+#define DIR_PIN          2  // Direction
 //#define STEP_PIN         4 // Step
-#define STEP_PIN          P5 // Step
+#define STEP_PIN        P5  // Step
 #define SERIAL_PORT Serial2 // HardwareSerial port 
 #define DRIVER_ADDRESS 0b00 // TMC2209 Driver address according to MS1 and MS2
 #define R_SENSE 0.11        // Match to your driver
-#define STALL_VALUE 8      // Stall value
+#define STALL_VALUE 8       // Stall value
 #define TestLED 18          // LED test
-#define DIAGpin 23          // Stall detection Pin
+#define DIAGpin 23          // Stall detection Interrupt Pin
+#define DIAGpinPCF P4       // Stall detection Pin on the expander
 #define ENN 19              // Enable mottor pin
-
-TMC2209Stepper driver(&SERIAL_PORT, R_SENSE, DRIVER_ADDRESS);
-SpeedyStepper stepper;
-PCF8575 Pcf8575(0x20);
 
 bool shaft = false;  // ONLY NEEDED FOR CHANGING DIRECTION VIA UART, NO NEED FOR DIR PIN FOR THIS
 bool shaftDirection;
 bool MotorRun = true;       // Start motor rotation
+bool DiagPinStatus;         // Logic level status
 uint16_t msread;
 uint16_t rms_current;
 uint16_t CurrentDirection;
@@ -33,6 +31,13 @@ void nativeDigitalWrite(uint8_t pin, uint8_t val);
 void digitalWrite(uint8_t pin, uint8_t val);
 void DiagInputSetup();
 void IRAM_ATTR Diag_ISR();
+void Diag_ISR_PCF();          // Interrupt ISR on expander
+
+
+TMC2209Stepper driver(&SERIAL_PORT, R_SENSE, DRIVER_ADDRESS);
+SpeedyStepper stepper;
+PCF8575 Pcf8575(0x20);
+//PCF8575 Pcf8575(0x39, DIAGpinPCF, Diag_ISR_PCF);
 
 // Override the digitalWrite and digitalRead functions for stepper and multiplexer compatability
 /*
@@ -54,16 +59,30 @@ void digitalWrite(uint8_t pin, uint8_t val) {
     pcf8575.digitalWrite(pin, val);
 }
 */
+/*
+void Diag_ISR_PCF() {
+  delayMicroseconds(50);                 // Debouncer
 
+  if (!(DIAGpinPCF == LOW)) {
+    digitalWrite(TestLED, 1);
+    
+  }
+  else {
+    digitalWrite(TestLED, 0);
+  }
+}*/
+
+
+// Microcontroller interrupt setup
 void DiagInputSetup() {
   attachInterrupt(digitalPinToInterrupt(DIAGpin), Diag_ISR,
-                  HIGH);  // Enable diag pin for interrupt
+                  FALLING);  // Enable diag pin for interrupt
 }
 
 void IRAM_ATTR Diag_ISR() {  
   delayMicroseconds(50);                 // Debouncer
 
-  if (!(DIAGpin == LOW)) {
+  if (!(DIAGpin == HIGH)) {
     digitalWrite(TestLED, 1);
     Serial.println("Stall detected!");
     digitalWrite(ENN, 1);                 // Reset the driver error condition
@@ -76,6 +95,7 @@ void IRAM_ATTR Diag_ISR() {
     digitalWrite(ENN, 1);                 // Reset the driver error condition
     delayMicroseconds(1000);
     digitalWrite(ENN, 0);                 // Enable driver
+    MotorRun = false;                     // Change motor rotation state
   }         
 }
 
@@ -91,6 +111,7 @@ void setup() {
   pinMode(ENN, OUTPUT);
   digitalWrite(ENN, 0);       // Enable driver
   pinMode(DIAGpin, INPUT_PULLDOWN);
+  Pcf8575.pinMode(DIAGpinPCF, INPUT);       // Set Diag pin on expander as input
   stepper.connectToPins(STEP_PIN, DIR_PIN); // INITIALIZE SpeedyStepper
   //stepper.connectToPins((pcf8575.STEP_PIN), DIR_PIN); // INITIALIZE SpeedyStepper
 
@@ -156,9 +177,9 @@ void loop() {
     Serial.print("Threshold :");
     Serial.println(driver.SGTHRS());
 
-    digitalWrite(TestLED, HIGH);
+    /*digitalWrite(TestLED, HIGH);
     delay(1000);
-    digitalWrite(TestLED, LOW);
+    digitalWrite(TestLED, LOW);*/
 
     /*nativeDigitalWrite(TestLED, HIGH);
     delay(1000);
