@@ -5,16 +5,16 @@
 #include <Arduino.h>
 
 //#define digitalWrite(uint8_t pin, uint8_t val) nativeDigitalWrite(uint8_t pin, uint8_t val);        // Duplicate digitalWrite function
-#define DIR_PIN          2  // Direction
+#define DIR_PIN          2 // Direction
 //#define STEP_PIN         4 // Step
-#define STEP_PIN        P5  // Step
+#define STEP_PIN          P5 // Step
 #define SERIAL_PORT Serial2 // HardwareSerial port 
 #define DRIVER_ADDRESS 0b00 // TMC2209 Driver address according to MS1 and MS2
 #define R_SENSE 0.11        // Match to your driver
-#define STALL_VALUE 8       // Stall value
+#define STALL_VALUE 8      // Stall value
 #define TestLED 18          // LED test
 #define DIAGpin 23          // Stall detection Interrupt Pin
-#define DIAGpinPCF P4       // Stall detection Pin on the expander
+#define DIAGpinPCF P4          // Stall detection Pin on the expander
 #define ENN 19              // Enable mottor pin
 
 bool shaft = false;  // ONLY NEEDED FOR CHANGING DIRECTION VIA UART, NO NEED FOR DIR PIN FOR THIS
