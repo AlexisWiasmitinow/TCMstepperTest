@@ -41,6 +41,25 @@ SoftwareSerial softSerial(RXD2, TXD2);
 TMC2209Stepper driver(&softSerial, R_SENSE, DRIVER_ADDRESS);
 SpeedyStepper stepper;
 
+void testTMC2209() {
+  Serial.printf("current: %d\n", driver.rms_current());
+  Serial.printf("microsteps: %d\n", driver.microsteps());
+  Serial.printf("shaft: %d\n", driver.shaft());
+  driver.microsteps(4);
+  driver.rms_current(300);
+  driver.shaft(true);
+  driver.push();
+  delay(1000);
+  Serial.printf("current: %d\n", driver.rms_current());
+  Serial.printf("microsteps: %d\n", driver.microsteps());
+  Serial.printf("shaft: %d\n", driver.shaft());
+  driver.microsteps(2);
+  driver.rms_current(600);
+  driver.shaft(false);
+  driver.push();
+  delay(1000);
+}
+
 void setup() {
   pinMode(EN_PIN, OUTPUT);
   pinMode(STEP_PIN, OUTPUT);
@@ -96,9 +115,10 @@ bool startMotor = true;
 bool diag = false;
 int loopCounter = 0;
 void loop() {
+  testTMC2209();
   // driver.moveTo(100);
   // stepper.moveToPositionInSteps(6400);
-  if (runMotor) {
+  /*if (runMotor) {
     digitalWrite(STEP_PIN, 1);
     delayMicroseconds(stepDelay);
     digitalWrite(STEP_PIN, 0);
@@ -118,5 +138,5 @@ void loop() {
     delayMicroseconds(stepDelay);
     startMotor = false;
     loopCounter++;
-  }
+  }*/
 }
